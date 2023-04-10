@@ -1,0 +1,154 @@
+overview-cognitive-services: # output md file name
+  metadata: # metadata for azure doc
+    title: Cognitive Services in Azure Synapse Analytics
+    description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # include / exclude the notebook in the pipeline
+lightgbm-overview:
+  metadata: # metadata for azure doc
+    title: LightGBM Overview
+    description: build LightGBM model with SynapseML
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/lightgbm/LightGBM - Overview.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # include / exclude the notebook in the pipeline
+onnx-overview:
+  metadata: # metadata for azure doc
+    title: ONNX - Inference on Spark
+    description: build ONNX model with SynapseML
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/onnx/ONNX - Inference on Spark.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # include / exclude the notebook in the pipeline
+tabular-shap-explainer:
+  metadata: # metadata for azure doc
+    title: Interpretability - Tabular SHAP explainer
+    description: Interpretability - Tabular SHAP explainer
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/responsible_ai/Interpretability - Tabular SHAP explainer.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # include / exclude the notebook in the pipeline
+open-ai:
+  metadata: # metadata for azure doc
+    title: OpenAI
+    description: OpenAI with cognitive services
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - OpenAI.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # include / exclude the notebook in the pipeline
+isolation-forest-multivariate-anomaly-detection:
+  metadata: # metadata for azure doc
+    title: Outlier and Anomaly Detection
+    description: Outlier and Anomaly Detection
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/isolation_forest/IsolationForest - Multivariate Anomaly Detection.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+cognitive-services-create-a-multilingual-search-engine-from-forms:
+  metadata:
+    title: Build a Search Engine
+    description: Build a Search Engine
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+deep-learning-deep-text-classification:
+  metadata:
+    title: Train a Text Classifier
+    description: Train a Text Classifier
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/simple_deep_learning/DeepLearning - Deep Text Classification.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+cognitive-services-multivariate-anomaly-detection:
+  metadata:
+    title: Analyze time series
+    description: Analyze time series
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+hyperparameter-tuning-fighting-breast-cancer:
+  metadata:
+    title: Analyze time series
+    description: Analyze time series
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/other/HyperParameterTuning - Fighting Breast Cancer.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+causal-structure:
+  metadata:
+    title: Causal Structure
+    description: Causal Structure
+    ms.service: fabric
+    ms.subservice: machine-learning
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: JessicaXYWang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true

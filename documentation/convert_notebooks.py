@@ -6,6 +6,8 @@ from nbconvert import MarkdownExporter
 from yaml.loader import FullLoader
 import requests
 import re
+from traitlets.config import Config
+from nbconvert.preprocessors import TagRemovePreprocessor
 
 
 def download_image(image_url, image_path):
@@ -16,7 +18,8 @@ def download_image(image_url, image_path):
 
 
 def rename(file_name):
-    return file_name.replace("_", "-").lower()
+    file_name = file_name.replace("_", "-").lower()
+    return file_name.replace(" ", "-").lower()
 
 
 def process_img(nb_body, folder_name, output_dir, media_dir):
@@ -25,7 +28,7 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
     scan text and find external image link, download the image and store in the img folder
     replace image link with img path
     """
-    image_tags = re.finditer(r"(<image.*?>)", nb_body)
+    image_tags = re.finditer(r"<img.*?>|<image.*?>", nb_body)
     process_nb_body = []
     prev = 0
     for match in image_tags:
@@ -34,16 +37,18 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
         content = nb_body[prev:start_index]
         process_nb_body.append(content)
         url = re.search(
-            r"<image.*?src=\"(.*?)\".*?>", nb_body[start_index:end_index]
+            r"<(?:img|image).*?src=\"(.*?)\".*?>", nb_body[start_index:end_index]
         ).group(1)
         file_name = url.split("/")[-1]
+        file_dir = "/".join([output_dir, media_dir, folder_name])
+        make_dir(file_dir)
         img_azure_doc_path = "/".join([folder_name, rename(file_name)])
+        md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
-        print(url, file_path)
         download_image(url, file_path)
         md_img_path = (
             ':::image type="content" source="{img_path}" alt_text="icon":::'.format(
-                img_path=img_azure_doc_path
+                img_path=md_img_input_path
             )
         )
         process_nb_body.append(md_img_path)
@@ -52,12 +57,22 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
     return "".join(process_nb_body)
 
 
+def make_dir(path):
+    if not os.path.exists(path):
+        os.makedirs(path)
+
+
 def convert_notebook_to_md(input_file):
     """
     convert notebook (.ipynb) file to markdown format
+    remove cell with tag hide-synapse-internal
     """
-    md_exporter = MarkdownExporter()
-    nb_body, _ = md_exporter.from_filename(input_file)
+    c = Config()
+    c.TagRemovePreprocessor.remove_cell_tags = ("hide-synapse-internal",)
+    c.TagRemovePreprocessor.enabled = True
+    c.MarkdownExporter.preprocessors = ["nbconvert.preprocessors.TagRemovePreprocessor"]
+    exporter = MarkdownExporter(config=c)
+    nb_body, _ = exporter.from_filename(input_file)
     return nb_body
 
 
@@ -183,7 +198,7 @@ class Document:
 
 
 if __name__ == "__main__":
-    with open("azure_doc_structure.yml", "r") as f:
+    with open("fabric_doc_structure.yml", "r") as f:
         structure = yaml.load(f, Loader=FullLoader)
     for doc_name, content in structure.items():
         if content["active"]:  # TODO: adding try except, default to active
