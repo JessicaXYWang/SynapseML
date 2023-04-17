@@ -46,10 +46,8 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
         download_image(url, file_path)
-        md_img_path = (
-            ':::image type="content" source="{img_path}" alt_text="icon":::'.format(
-                img_path=md_img_input_path
-            )
+        md_img_path = ':::image source="{img_path}":::'.format(
+            img_path=md_img_input_path
         )
         process_nb_body.append(md_img_path)
         prev = end_index
