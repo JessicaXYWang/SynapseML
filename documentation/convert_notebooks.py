@@ -136,10 +136,10 @@ class Document:
                         required_metadata=required_metadata
                     )
                 )
-        if ("ms.service" not in metadata) and ("ms.prod" not in metadata):
-            raise ValueError(
-                "either ms.service or ms.prod must be in metadata, please add it to yml file"
-            )
+        # if ("ms.service" not in metadata) and ("ms.prod" not in metadata):
+        #     raise ValueError(
+        #         "either ms.service or ms.prod must be in metadata, please add it to yml file"
+        #     )
         # generate final metadata
         generated_metadata = "---\n"
         for k, v in metadata.items():
@@ -191,7 +191,7 @@ class Document:
         if not os.path.exists(self.output_dir):
             os.mkdir(self.output_dir)
         output_file = self.output_dir + "/" + self.filename + ".md"
-        with open(output_file, "w") as f:
+        with open(output_file, "w", encoding="utf-8") as f:
             f.write(combined_documentation)
 
 
@@ -199,6 +199,7 @@ if __name__ == "__main__":
     with open("fabric_doc_structure.yml", "r") as f:
         structure = yaml.load(f, Loader=FullLoader)
     for doc_name, content in structure.items():
+        print(doc_name)
         if content["active"]:  # TODO: adding try except, default to active
             doc = Document(doc_name, content)
             doc.run()
