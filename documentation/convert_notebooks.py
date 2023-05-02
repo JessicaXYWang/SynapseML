@@ -46,8 +46,9 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
         download_image(url, file_path)
-        md_img_path = ':::image source="{img_path}":::'.format(
-            img_path=md_img_input_path
+        alt_text = file_name.split(".")[0]
+        md_img_path = ':::image source="{img_path}" alt-text="picture {alt_text}":::'.format(
+            img_path=md_img_input_path, alt_text=alt_text
         )
         process_nb_body.append(md_img_path)
         prev = end_index
@@ -136,6 +137,7 @@ class Document:
                         required_metadata=required_metadata
                     )
                 )
+        # Validation Rules are different between Synapse-internal and Azure Doc
         # if ("ms.service" not in metadata) and ("ms.prod" not in metadata):
         #     raise ValueError(
         #         "either ms.service or ms.prod must be in metadata, please add it to yml file"

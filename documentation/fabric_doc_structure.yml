@@ -1,8 +1,43 @@
+causal-structure:
+  metadata:
+    title: Causal Structure
+    description: Causal Structure
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: jessiwang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+cognitive-services-create-a-multilingual-search-engine-from-forms:
+  metadata:
+    title: Build a Search Engine
+    description: Build a Search Engine
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: jessiwang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
+cognitive-services-multivariate-anomaly-detection:
+  metadata:
+    title: Analyze time series
+    description: Analyze time series
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: jessiwang
+    ms.author: jessiwang
+  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true
 overview-cognitive-services: # output md file name
   metadata: # metadata for azure doc
     title: Cognitive Services in Azure Synapse Analytics
     description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -15,7 +50,6 @@ lightgbm-overview:
   metadata: # metadata for azure doc
     title: LightGBM Overview
     description: build LightGBM model with SynapseML
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -28,7 +62,6 @@ onnx-overview:
   metadata: # metadata for azure doc
     title: ONNX - Inference on Spark
     description: build ONNX model with SynapseML
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -41,7 +74,6 @@ tabular-shap-explainer:
   metadata: # metadata for azure doc
     title: Interpretability - Tabular SHAP explainer
     description: Interpretability - Tabular SHAP explainer
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -54,7 +86,6 @@ open-ai:
   metadata: # metadata for azure doc
     title: OpenAI
     description: OpenAI with cognitive services
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -67,7 +98,6 @@ isolation-forest-multivariate-anomaly-detection:
   metadata: # metadata for azure doc
     title: Outlier and Anomaly Detection
     description: Outlier and Anomaly Detection
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -76,24 +106,10 @@ isolation-forest-multivariate-anomaly-detection:
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
   active: true
-cognitive-services-create-a-multilingual-search-engine-from-forms:
-  metadata:
-    title: Build a Search Engine
-    description: Build a Search Engine
-    ms.subservice: machine-learning
-    ms.topic: overview
-    ms.reviewer: jessiwang
-    author: jessiwang
-    ms.author: jessiwang
-  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
-  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
-  media_dir: media
-  active: true
 deep-learning-deep-text-classification:
   metadata:
     title: Train a Text Classifier
     description: Train a Text Classifier
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -102,24 +118,10 @@ deep-learning-deep-text-classification:
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
   active: true
-cognitive-services-multivariate-anomaly-detection:
-  metadata:
-    title: Analyze time series
-    description: Analyze time series
-    ms.subservice: machine-learning
-    ms.topic: overview
-    ms.reviewer: jessiwang
-    author: jessiwang
-    ms.author: jessiwang
-  input_path: ../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
-  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
-  media_dir: media
-  active: true
 hyperparameter-tuning-fighting-breast-cancer:
   metadata:
     title: Hyperparameter tuning
     description: Hyperparameter tuning
-    ms.subservice: machine-learning
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -128,24 +130,10 @@ hyperparameter-tuning-fighting-breast-cancer:
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
   active: true
-causal-structure:
-  metadata:
-    title: Causal Structure
-    description: Causal Structure
-    ms.subservice: machine-learning
-    ms.topic: overview
-    ms.reviewer: jessiwang
-    author: jessiwang
-    ms.author: jessiwang
-  input_path: ../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
-  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
-  media_dir: media
-  active: true
 synapseml-first-model:
   metadata:
     title: SynapseMl first model
-    description:  5 minute tour of SynapseML
-    ms.subservice: machine-learning
+    description:  A quick introduction to building your first machine learning model with SynapseML
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
