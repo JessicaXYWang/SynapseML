@@ -22,7 +22,7 @@ def rename(file_name):
     return file_name.replace(" ", "-").lower()
 
 
-def process_img(nb_body, folder_name, output_dir, media_dir):
+def process_img(nb_body, folder_name, output_dir, media_dir, alt_texts):
     """
     handle Azure doc validation rule (Suggestion: external-image, Warning: alt-text-missing)
     scan text and find external image link, download the image and store in the img folder
@@ -31,6 +31,7 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
     image_tags = re.finditer(r"<img.*?>|<image.*?>", nb_body)
     process_nb_body = []
     prev = 0
+    alt_text_count = 0
     for match in image_tags:
         start_index = match.start()
         end_index = match.end()
@@ -46,8 +47,10 @@ def process_img(nb_body, folder_name, output_dir, media_dir):
         md_img_input_path = "/".join([media_dir, img_azure_doc_path])
         file_path = "/".join([output_dir, media_dir, img_azure_doc_path])
         download_image(url, file_path)
-        alt_text = file_name.split(".")[0]
-        md_img_path = ':::image source="{img_path}" alt-text="picture {alt_text}":::'.format(
+        #alt_text = file_name.split(".")[0]
+        alt_text = alt_texts[alt_text_count]
+        alt_text_count += 1
+        md_img_path = ':::image source="{img_path}" alt-text="{alt_text}":::'.format(
             img_path=md_img_input_path, alt_text=alt_text
         )
         process_nb_body.append(md_img_path)
@@ -61,13 +64,13 @@ def make_dir(path):
         os.makedirs(path)
 
 
-def convert_notebook_to_md(input_file):
+def convert_notebook_to_md(input_file, hide_tag="hide-synapse-internal"):
     """
     convert notebook (.ipynb) file to markdown format
-    remove cell with tag hide-synapse-internal
+    remove cell with tag
     """
     c = Config()
-    c.TagRemovePreprocessor.remove_cell_tags = ("hide-synapse-internal",)
+    c.TagRemovePreprocessor.remove_cell_tags = (hide_tag,)
     c.TagRemovePreprocessor.enabled = True
     c.MarkdownExporter.preprocessors = ["nbconvert.preprocessors.TagRemovePreprocessor"]
     exporter = MarkdownExporter(config=c)
@@ -115,6 +118,11 @@ class Document:
         self.input_path = content["input_path"]
         self.output_dir = content["output_dir"]
         self.media_dir = content["media_dir"]
+        try:
+            self.alt_texts = content["alt_texts"]
+        except KeyError:
+            self.alt_texts = []
+
         try:
             self.replace_mapping = content["replace_mapping"]
         except KeyError:
@@ -196,7 +204,7 @@ class Document:
 
     def run(self):
         body = convert_notebook_to_md(self.input_path)
-        body = process_img(body, self.filename, self.output_dir, self.media_dir)
+        body = process_img(body, self.filename, self.output_dir, self.media_dir, self.alt_texts)
         generated_metadata = self.generate_metadata()
         combined_documentation = self.combine_documentation(generated_metadata, body)
 
@@ -208,7 +216,8 @@ class Document:
 
 
 if __name__ == "__main__":
-    with open("fabric_doc_structure.yml", "r") as f:
+    #with open("fabric_doc_structure.yml", "r") as f:
+    with open("temp_doc.yml", "r") as f:
         structure = yaml.load(f, Loader=FullLoader)
     for doc_name, content in structure.items():
         print(doc_name)

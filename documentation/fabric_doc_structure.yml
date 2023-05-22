@@ -9,11 +9,12 @@ causal-structure:
   input_path: ../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
+  # alt_texts: [alt text 1, alt text 2]
   active: false # error model.fit
 cognitive-services-create-a-multilingual-search-engine-from-forms:
   metadata:
     title: Build a Search Engine
-    description: Build a Search Engine
+    description: Build a custom search engine and question-answering system with SynapseML.
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
@@ -167,7 +168,7 @@ conditional-knn-exploring-art:
 classification-before-and-after-synapseml:
   metadata:
     title: Classification - Before and After SynapseML
-    description:  Perform the same classification task with and without synapseml
+    description:  Perform the same classification task with and without SynapseML.
     ms.topic: overview
     ms.reviewer: jessiwang
     author: jessiwang
