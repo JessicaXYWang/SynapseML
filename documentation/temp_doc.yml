@@ -1,6 +1,6 @@
 install-synapseml:
   metadata:
-    title: Install a Different Version of SynapseML on Fabric
+    title: Install a different version of SynapseML on Microsoft Fabric
     description: Instruction of how to install SynapseML on Fabric
     ms.topic: overview
     ms.reviewer: jessiwang
@@ -9,5 +9,4 @@ install-synapseml:
   input_path: ./articles/fabric/Install a Different Version of SynapseML on Fabric.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
-  # alt_texts: [alt text 1, alt text 2]
-  active: true # error model.fit
+  active: true

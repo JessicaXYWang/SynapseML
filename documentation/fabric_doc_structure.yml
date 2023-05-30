@@ -3,6 +3,7 @@ causal-structure:
     title: Causal Structure
     description: Causal Structure
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -16,6 +17,7 @@ cognitive-services-create-a-multilingual-search-engine-from-forms:
     title: Build a Search Engine
     description: Build a custom search engine and question-answering system with SynapseML.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -27,8 +29,9 @@ cognitive-services-create-a-multilingual-search-engine-from-forms:
 cognitive-services-multivariate-anomaly-detection:
   metadata:
     title: Analyze time series
-    description: Analyze time series
+    description: Use SynapseML and Azure Cognitive Services for multivariate anomaly detection.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -36,12 +39,14 @@ cognitive-services-multivariate-anomaly-detection:
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
+  alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
   active: true # clear
 overview-cognitive-services: # output md file name
   metadata: # metadata for azure doc
     title: Cognitive Services in Azure Synapse Analytics
     description: Enrich your data with artificial intelligence (AI) in Azure Synapse Analytics using pretrained models from Azure Cognitive Services.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -55,6 +60,7 @@ lightgbm-overview:
     title: LightGBM Overview
     description: build LightGBM model with SynapseML
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -68,6 +74,7 @@ onnx-overview:
     title: ONNX - Inference on Spark
     description: build ONNX model with SynapseML
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -79,8 +86,9 @@ onnx-overview:
 tabular-shap-explainer:
   metadata: # metadata for azure doc
     title: Interpretability - Tabular SHAP explainer
-    description: Interpretability - Tabular SHAP explainer
+    description: Use Kernel SHAP to explain a tabular classification model.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -94,6 +102,7 @@ open-ai:
     title: OpenAI
     description: OpenAI with cognitive services
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -104,8 +113,9 @@ open-ai:
 isolation-forest-multivariate-anomaly-detection:
   metadata: # metadata for azure doc
     title: Outlier and Anomaly Detection
-    description: Outlier and Anomaly Detection
+    description: Use SynapseML on Apache Spark for multivariate anomaly detection with Isolation Forest model.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -119,6 +129,7 @@ deep-learning-deep-text-classification:
     title: Train a Text Classifier
     description: Train a Text Classifier
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -129,8 +140,9 @@ deep-learning-deep-text-classification:
 hyperparameter-tuning-fighting-breast-cancer:
   metadata:
     title: Hyperparameter tuning
-    description: Hyperparameter tuning
+    description: Identify the best combination of hyperparameters for your chosen classifiers with SynapseML.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -144,6 +156,7 @@ synapseml-first-model:
     title: SynapseMl first model
     description:  A quick introduction to building your first machine learning model with SynapseML
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -152,11 +165,12 @@ synapseml-first-model:
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
   active: true # clear
-conditional-knn-exploring-art:
+conditional-k-nearest-neighbors-exploring-art:
   metadata:
     title: Conditional KNN Exploring Art Across Cultures 
     description:  A guideline for match-finding via k-nearest-neighbors
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
@@ -164,17 +178,31 @@ conditional-knn-exploring-art:
   input_path: ../notebooks/features/other/ConditionalKNN - Exploring Art Across Cultures.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
+  alt_texts: ["Screenshot of multivariate anomaly detection results plot"]
   active: true # clear
 classification-before-and-after-synapseml:
   metadata:
     title: Classification - Before and After SynapseML
     description:  Perform the same classification task with and without SynapseML.
     ms.topic: overview
+    ms.custom: build-2023
     ms.reviewer: jessiwang
     author: jessiwang
     ms.author: jessiwang
   end: ./synapse_internal_template/classification-before-and-after-synapseml-end.md
   input_path: ../notebooks/features/classification/Classification - Before and After SynapseML.ipynb
+  output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
+  media_dir: media
+  active: true # clear
+install-synapseml:
+  metadata:
+    title: Install a different version of SynapseML on Microsoft Fabric
+    description: Instruction of how to install SynapseML on Fabric
+    ms.topic: overview
+    ms.reviewer: jessiwang
+    author: jessiwang
+    ms.author: jessiwang
+  input_path: ./articles/fabric/Install a Different Version of SynapseML on Fabric.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
   media_dir: media
   active: true # clear

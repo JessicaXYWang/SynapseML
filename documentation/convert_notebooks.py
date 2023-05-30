@@ -216,8 +216,8 @@ class Document:
 
 
 if __name__ == "__main__":
-    #with open("fabric_doc_structure.yml", "r") as f:
-    with open("temp_doc.yml", "r") as f:
+    #with open("temp_doc.yml", "r") as f:
+    with open("fabric_doc_structure.yml", "r") as f:
         structure = yaml.load(f, Loader=FullLoader)
     for doc_name, content in structure.items():
         print(doc_name)
