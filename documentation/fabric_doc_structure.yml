@@ -5,7 +5,7 @@ causal-structure:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   input_path: ../notebooks/features/causal_inference/Effects of Outreach Efforts.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
@@ -19,7 +19,7 @@ cognitive-services-create-a-multilingual-search-engine-from-forms:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/cognitive-services-create-a-multilingual-search-engine-from-forms-end.md # platform specific content added after notebook
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Create a Multilingual Search Engine from Forms.ipynb
@@ -33,7 +33,7 @@ cognitive-services-multivariate-anomaly-detection:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/cognitive-services-multivariate-anomaly-detection-end.md
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Multivariate Anomaly Detection.ipynb
@@ -48,7 +48,7 @@ overview-cognitive-services: # output md file name
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/overview-cognitive-services-end.md
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - Overview.ipynb
@@ -62,7 +62,7 @@ lightgbm-overview:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/lightgbm-overview-end.md
   input_path: ../notebooks/features/lightgbm/LightGBM - Overview.ipynb
@@ -76,7 +76,7 @@ onnx-overview:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/onnx-overview-end.md
   input_path: ../notebooks/features/onnx/ONNX - Inference on Spark.ipynb
@@ -90,7 +90,7 @@ tabular-shap-explainer:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/tabular-shap-explainer-end.md
   input_path: ../notebooks/features/responsible_ai/Interpretability - Tabular SHAP explainer.ipynb
@@ -104,7 +104,7 @@ open-ai:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   input_path: ../notebooks/features/cognitive_services/CognitiveServices - OpenAI.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
@@ -117,7 +117,7 @@ isolation-forest-multivariate-anomaly-detection:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/isolation-forest-multivariate-anomaly-detection-end.md
   input_path: ../notebooks/features/isolation_forest/IsolationForest - Multivariate Anomaly Detection.ipynb
@@ -131,7 +131,7 @@ deep-learning-deep-text-classification:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   input_path: ../notebooks/features/simple_deep_learning/DeepLearning - Deep Text Classification.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
@@ -144,7 +144,7 @@ hyperparameter-tuning-fighting-breast-cancer:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/hyperparameter-tuning-fighting-breast-cancer-end.md
   input_path: ../notebooks/features/other/HyperParameterTuning - Fighting Breast Cancer.ipynb
@@ -158,7 +158,7 @@ synapseml-first-model:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/synapseml-first-model-end.md
   input_path: ../notebooks/features/classification/Classification - Sentiment Analysis Quickstart.ipynb
@@ -172,7 +172,7 @@ conditional-k-nearest-neighbors-exploring-art:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/conditional-knn-exploring-art-end.md
   input_path: ../notebooks/features/other/ConditionalKNN - Exploring Art Across Cultures.ipynb
@@ -187,7 +187,7 @@ classification-before-and-after-synapseml:
     ms.topic: overview
     ms.custom: build-2023
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   end: ./synapse_internal_template/classification-before-and-after-synapseml-end.md
   input_path: ../notebooks/features/classification/Classification - Before and After SynapseML.ipynb
@@ -200,7 +200,7 @@ install-synapseml:
     description: Instruction of how to install SynapseML on Fabric
     ms.topic: overview
     ms.reviewer: jessiwang
-    author: jessiwang
+    author: JessicaXYWang
     ms.author: jessiwang
   input_path: ./articles/fabric/Install a Different Version of SynapseML on Fabric.ipynb
   output_dir: ../../fabric-docs-pr/docs/data-science #./articles/synapse-analytics
