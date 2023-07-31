@@ -176,8 +176,8 @@ class FabricChannel(Channel):
     def _read_rst(self, rst_file_path):
         try:
             extra_args = ['--wrap=none']
-            md_string = pypandoc.convert_file(rst_file_path, 'md', format='rst', extra_args=extra_args)
-            return md_string
+            html_string = pypandoc.convert_file(rst_file_path, 'html', format='rst', extra_args=extra_args)
+            return html_string
         except Exception as e:
             print("Error converting the RST file to Markdown:", e)
             return None
@@ -200,9 +200,9 @@ class FabricChannel(Channel):
 
         if str(input_file).endswith(".rst"):
             output_file = self._sentence_to_snake(str(output_file).replace(".rst", ".md"))
-            md = self._read_rst(full_input_file)
-            html = markdown.markdown(md, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
-            parsed_html = BeautifulSoup(html)
+            html = self._read_rst(full_input_file)
+            parsed_html = markdown.markdown(html, extensions=["markdown.extensions.tables", "markdown.extensions.fenced_code"])
+            parsed_html = BeautifulSoup(parsed_html)
             parsed_html = self._download_and_replace_images(
                 parsed_html,
                 None,
@@ -222,7 +222,7 @@ class FabricChannel(Channel):
                 return MarkdownConverter(**options).convert_soup(soup)
 
             # Convert from HTML to MD
-            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX)
+            new_md = convert_soup_to_md(parsed_html, code_language_callback=callback, heading_style=ATX, escape_underscores=False)
         
         if str(input_file).endswith(".ipynb"):
             output_file = self._sentence_to_snake(str(output_file).replace(".ipynb", ".md"))
