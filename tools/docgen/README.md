@@ -1,6 +1,6 @@
 # Doc generating pipeline onboarding - Fabric channel
 
-Please edit the rst file to make to met Fabric requirement
+Please edit the rst file to met Fabric doc requirement
 
 ## Set manifest.yaml
 
@@ -35,9 +35,11 @@ channels:
 
 ### Image alt text
 
-Please add alt text to all the image to meet .
+Please add alt text to all the image to meet Fabric doc requirement
 #### rst file
-For each image, add alt text. eg:
+For each image, add alt text.
+
+eg:
 
 ```
 .. image::
@@ -58,7 +60,7 @@ Set image url in Notebook (Markdown format):
 ```
 
 ### Language code
-Please remove all language code in under https://docs.microsoft.com and https://learn.microsoft.com
+Please remove all language code under https://docs.microsoft.com and https://learn.microsoft.com
 eg:
 
 ```
@@ -68,5 +70,3 @@ Change it to
 ```
 https://learn.microsoft.com/fabric/onelake/onelake-overview
 ```
-
-## Run the pipeline
