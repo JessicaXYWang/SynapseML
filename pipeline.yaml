@@ -365,6 +365,10 @@ jobs:
         PACKAGE: "core"
       deep-learning:
         PACKAGE: "deepLearning"
+        TEST_PATH: "deep-learning/src/test/python/synapsemltest/dl"
+      deep-learning-huggingface:
+        PACKAGE: "deepLearning"
+        TEST_PATH: "deep-learning/src/test/python/synapsemltest/hf"
       lightgbm:
         PACKAGE: "lightgbm"
       opencv:
@@ -403,7 +407,17 @@ jobs:
           export SBT_OPTS="-Xms2G -XX:+UseConcMarkSweepGC -XX:+CMSClassUnloadingEnabled -Xss5M  -Duser.timezone=GMT"
           echo "##vso[task.setvariable variable=SBT_OPTS]$SBT_OPTS"
           echo "SBT_OPTS=$SBT_OPTS"
-          (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython) || (sbt "project $(PACKAGE)" coverage testPython)
+          if [[ "$(PACKAGE)" == "deepLearning" && -n "$(TEST_PATH)" ]]; then
+          echo "Running filtered unittest tests under $(TEST_PATH)"
+          (sbt "project $(PACKAGE)" coverage "testPythonOnly -- -s $(TEST_PATH)") || \
+          (sbt "project $(PACKAGE)" coverage "testPythonOnly -- -s $(TEST_PATH)") || \
+          (sbt "project $(PACKAGE)" coverage "testPythonOnly -- -s $(TEST_PATH)")
+          else
+          echo "Running full test suite for $(PACKAGE)"
+          (sbt "project $(PACKAGE)" coverage testPython) || \
+          (sbt "project $(PACKAGE)" coverage testPython) || \
+          (sbt "project $(PACKAGE)" coverage testPython)
+          fi
     - task: PublishTestResults@2
       displayName: 'Publish Test Results'
       inputs:
