@@ -22,7 +22,6 @@ class OpenAIPromptSuite extends TransformerFuzzing[OpenAIPrompt] with OpenAIAPIK
   }
 
   lazy val prompt: OpenAIPrompt = new OpenAIPrompt()
-//    .setApiVersion("2025-01-01-preview")
     .setSubscriptionKey(openAIAPIKey)
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
