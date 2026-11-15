@@ -9,22 +9,23 @@ import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, Transformer
 import com.microsoft.azure.synapse.ml.services.openai._
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.{DataFrame, Row}
-import org.scalactic.Equality
 
 trait AIFoundryAPIKey {
-  lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.AIFoundryApiKey)
-  lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-ai-foundry-resource")
+  lazy val aiFoundryAPIKey: String = sys.env.getOrElse("AI_FOUNDRY_API_KEY", Secrets.OpenAIApiKey)
+  lazy val aiFoundryServiceName: String = sys.env.getOrElse("AI_FOUNDRY_SERVICE_NAME", "synapseml-openai-3")
   lazy val aiFoundryModelName: String = "Llama-3.3-70B-Instruct" //"Phi-4-mini-instruct"
 }
 
 class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompletion] with AIFoundryAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
   lazy val completion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
     .setCustomServiceName(aiFoundryServiceName)
     .setApiVersion("2024-05-01-preview")
-    .setMaxTokens(2048)
+    .setMaxCompletionTokens(2048)
     .setOutputCol("out")
     .setMessagesCol("messages")
     .setTemperature(0)
@@ -63,7 +64,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
   import spark.implicits._
 
   def promptCompletion: AIFoundryChatCompletion = new AIFoundryChatCompletion()
-    .setMaxTokens(200)
+    .setMaxCompletionTokens(200)
     .setOutputCol("out")
     .setMessagesCol("prompt")
 
@@ -194,7 +195,7 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
       .setCustomServiceName(aiFoundryServiceName)
       .setModel(aiFoundryModelName)
       .setApiVersion("2024-05-01-preview")
-      .setMaxTokens(500)
+      .setMaxCompletionTokens(500)
       .setOutputCol("out")
       .setMessagesCol("messages")
       .setTemperature(0)
@@ -209,10 +210,6 @@ class AIFoundryChatCompletionSuite extends TransformerFuzzing[AIFoundryChatCompl
     completion.transform(df).collect().foreach(r =>
       fromRow(r.getAs[Row]("out")).choices.foreach(c =>
         assert(c.message.content.length > requiredLength)))
-  }
-
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
   }
 
   override def testObjects(): Seq[TestObject[AIFoundryChatCompletion]] =

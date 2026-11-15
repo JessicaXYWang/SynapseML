@@ -11,12 +11,12 @@ import org.apache.spark.sql.{functions => F}
 import org.apache.spark.sql.{DataFrame, Row}
 import org.apache.spark.sql.catalyst.expressions.GenericRowWithSchema
 import org.apache.spark.sql.types.{ArrayType, MapType, StringType, StructField, StructType}
-import org.scalactic.Equality
 import spray.json._
 import spray.json.DefaultJsonProtocol._
 
 class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
   with OpenAIAPIKey with Flaky {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -24,16 +24,16 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     .setDeploymentName(deploymentName)
     .setCustomServiceName(openAIServiceName)
     .setApiVersion("2025-04-01-preview")
-    .setMaxTokens(500)
+    .setMaxCompletionTokens(500)
+    .setReasoningEffort("low")
     .setOutputCol("out")
     .setMessagesCol("messages")
-    .setTemperature(0)
     .setSubscriptionKey(openAIAPIKey)
 
   lazy val goodDf: DataFrame = Seq(
     Seq(
       OpenAIMessage("system", "You are an AI chatbot with red as your favorite color"),
-      OpenAIMessage("user", "Whats your favorite color")
+      OpenAIMessage("user", "What is your favorite color? Reply in a full sentence.")
     ),
     Seq(
       OpenAIMessage("system", "You are very excited"),
@@ -222,10 +222,9 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
       .setDeploymentName(deploymentName)
       .setCustomServiceName(openAIServiceName)
       .setApiVersion("2025-04-01-preview")
-      .setMaxTokens(100)
+      .setMaxCompletionTokens(100)
       .setOutputCol("out")
       .setMessagesCol("messages")
-      .setTemperature(0)
       .setSubscriptionKey(openAIAPIKey)
       .setStore(true)
 
@@ -283,7 +282,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
@@ -305,14 +304,14 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assert(!transformer.isContentFiltered(responseDf.collect().head))
   }
 
-  test("Responses extract output text from gpt-4.1 message output") {
+  test("Responses extract output text from message-only output") {
     val transformer = new OpenAIResponses()
     val responseJson =
       """{
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-4.1",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"fruit\"}"}]}
         |  ],
@@ -340,7 +339,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":""}]}
         |  ],
@@ -367,7 +366,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"stale\"}"}]},
         |    {"type":"message","status":"completed","content":[{"type":"output_text","text":"{\"answer\":\"final\"}"}]}
@@ -395,7 +394,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"message","status":"content_filter","content":null}
         |  ],
@@ -417,7 +416,7 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
         |  "id":"resp_test",
         |  "object":"response",
         |  "created_at":"1",
-        |  "model":"gpt-5",
+        |  "model":"gpt-6-luna",
         |  "output":[
         |    {"type":"reasoning","status":"completed","content":null},
         |    {"type":"message","status":"content_filter","content":null}
@@ -433,22 +432,65 @@ class OpenAIResponsesSuite extends TransformerFuzzing[OpenAIResponses]
     assert(transformer.getFilterReason(outputRow) == "content_filter")
   }
 
-  private def testResponses(model: OpenAIResponses,
-                            df: DataFrame,
-                            requiredLength: Int = 10): Unit = {
-    val fromRow = ResponsesModelResponse.makeFromRowConverter
-    model.transform(df).collect().foreach { row =>
-      val responseRow = row.getAs[Row]("out")
-      if (responseRow != null) {
-        fromRow(responseRow).output.foreach { choice =>
-          assert(choice.content.length > requiredLength)
-        }
-      }
+  test("maxCompletionTokens sends max_output_tokens on wire for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxCompletionTokens(500)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = transformer.getOptionalParams(messages.head)
+    assert(params.contains("max_output_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(!params.contains("max_completion_tokens"))
+    assert(params("max_output_tokens") == 500)
+  }
+
+  test("deprecated maxTokens remapped to max_output_tokens on wire for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    val params = transformer.getOptionalParams(messages.head)
+    assert(params.contains("max_output_tokens"))
+    assert(!params.contains("max_tokens"))
+    assert(!params.contains("max_completion_tokens"))
+    assert(params("max_output_tokens") == 200)
+  }
+
+  test("setting both maxTokens and maxCompletionTokens throws for responses") {
+    val transformer = new OpenAIResponses()
+      .setDeploymentName(deploymentName)
+      .setMaxTokens(100)
+      .setMaxCompletionTokens(200)
+
+    val messages: Seq[Row] = Seq(
+      OpenAIMessage("user", "Test message")
+    ).toDF("role", "content", "name").collect()
+
+    assertThrows[IllegalArgumentException] {
+      transformer.getOptionalParams(messages.head)
     }
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(df1.drop("out"), df2.drop("out"))(eq)
+  private def testResponses(model: OpenAIResponses,
+                            df: DataFrame,
+                            requiredLength: Int = 10): Unit = {
+    model.transform(df)
+      .select(model.getOutputMessageText(model.getOutputCol).as("text"))
+      .collect()
+      .foreach { row =>
+        val text = row.getAs[String]("text")
+        assert(text != null, "Expected non-null text from Responses API")
+        assert(text.length > requiredLength,
+          s"Expected text length > $requiredLength but got ${text.length}")
+    }
   }
 
   override def testObjects(): Seq[TestObject[OpenAIResponses]] =

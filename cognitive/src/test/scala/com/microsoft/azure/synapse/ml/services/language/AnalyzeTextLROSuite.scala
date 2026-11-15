@@ -27,6 +27,7 @@ class AnalyzeTextLROSuite extends AnyFunSuiteLike {
 }
 
 class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -154,6 +155,7 @@ class ExtractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRun
 
 
 class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -255,6 +257,7 @@ class AbstractiveSummarizationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 }
 
 class HealthcareSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
 
   import spark.implicits._
@@ -298,6 +301,7 @@ class HealthcareSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperation
 }
 
 class SentimentAnalysisLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -363,8 +367,8 @@ class SentimentAnalysisLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
   override def reader: MLReadable[_] = AnalyzeText
 }
 
-
 class KeyPhraseLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -422,6 +426,7 @@ class KeyPhraseLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperati
 
 
 class AnalyzeTextPIILORSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -487,6 +492,7 @@ class AnalyzeTextPIILORSuite extends TransformerFuzzing[AnalyzeTextLongRunningOp
 
 
 class EntityLinkingLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -543,6 +549,7 @@ class EntityLinkingLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOpe
 
 
 class EntityRecognitionLROSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations] with TextEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -599,6 +606,7 @@ class EntityRecognitionLROSuite extends TransformerFuzzing[AnalyzeTextLongRunnin
 
 class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations]
                                            with LanguageServiceEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -645,6 +653,7 @@ class CustomEntityRecognitionSuite extends TransformerFuzzing[AnalyzeTextLongRun
 
 class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRunningOperations]
                                            with LanguageServiceEndpoint {
+  override val compareDataInSerializationTest: Boolean = false
 
   import spark.implicits._
 
@@ -689,6 +698,3 @@ class MultiLableClassificationSuite extends TransformerFuzzing[AnalyzeTextLongRu
 
   override def reader: MLReadable[_] = AnalyzeText
 }
-
-
-

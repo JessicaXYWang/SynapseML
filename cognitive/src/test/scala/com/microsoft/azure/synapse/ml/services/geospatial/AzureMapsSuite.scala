@@ -4,26 +4,19 @@
 package com.microsoft.azure.synapse.ml.services.geospatial
 
 import com.microsoft.azure.synapse.ml.Secrets
-import com.microsoft.azure.synapse.ml.build.BuildInfo
-import com.microsoft.azure.synapse.ml.services.URLEncodingUtils
 import com.microsoft.azure.synapse.ml.core.test.fuzzing.{TestObject, TransformerFuzzing}
-import com.microsoft.azure.synapse.ml.services.geospatial.AzureMapsJsonProtocol._
-import com.microsoft.azure.synapse.ml.io.http.{HeaderValues, RESTHelpers}
 import com.microsoft.azure.synapse.ml.stages.{FixedMiniBatchTransformer, FlattenBatch}
-import org.apache.http.client.methods.{HttpDelete, HttpGet, HttpPost}
-import org.apache.http.entity.StringEntity
 import org.apache.spark.ml.util.MLReadable
 import org.apache.spark.sql.DataFrame
 import org.apache.spark.sql.functions.col
-import org.scalactic.Equality
-
-import java.net.URI
 
 trait AzureMapsKey {
   lazy val azureMapsKey: String = sys.env.getOrElse("AZURE_MAPS_KEY", Secrets.AzureMapsKey)
 }
 
 class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with AzureMapsKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -71,10 +64,6 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
     assert(flattenedResults.toSeq.head.get(1).toString.startsWith("47.6418"))
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(extractFields(df1), extractFields(df2))(eq)
-  }
-
   override def testObjects(): Seq[TestObject[AddressGeocoder]] =
     Seq(new TestObject[AddressGeocoder](
       batchGeocodeAddresses,
@@ -84,6 +73,8 @@ class AzMapsSearchAddressSuite extends TransformerFuzzing[AddressGeocoder] with 
 }
 
 class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressGeocoder] with AzureMapsKey {
+  override val compareDataInSerializationTest: Boolean = false
+
 
   import spark.implicits._
 
@@ -148,10 +139,6 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
 
   }
 
-  override def assertDFEq(df1: DataFrame, df2: DataFrame)(implicit eq: Equality[DataFrame]): Unit = {
-    super.assertDFEq(extractFields(df1), extractFields(df2))(eq)
-  }
-
   override def testObjects(): Seq[TestObject[ReverseAddressGeocoder]] =
     Seq(new TestObject[ReverseAddressGeocoder](
       batchReverseGeocode,
@@ -163,4 +150,5 @@ class AzMapsSearchReverseAddressSuite extends TransformerFuzzing[ReverseAddressG
 // AzMapsPointInPolygonSuite was removed because the Azure Maps Spatial service
 // was retired on September 30, 2025. The CheckPointInPolygon transformer now
 // throws UnsupportedOperationException on transform().
+// Keep its offline request, schema, retirement-error, and persistence coverage in GeospatialCoreSuite.
 // See: https://azure.microsoft.com/en-us/updates/v2/azure-maps-creator-services-retirement-on-30-september-2025

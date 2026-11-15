@@ -25,7 +25,8 @@ import org.apache.spark.ml.param.Param
 object OpenAIEmbedding extends ComplexParamsReadable[OpenAIEmbedding]
 
 class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
-  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput with SynapseMLLogging {
+  with HasOpenAIEmbeddingParams with HasCognitiveServiceInput
+  with HasOpenAIFabricHeaders with SynapseMLLogging {
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIEmbedding"))
@@ -64,10 +65,19 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
   }
 
   override protected def prepareUrlRoot: Row => String = { row =>
+    val dep = getEmbeddingDeployment(row)
+    if (isOpenAIV1BaseUrl) {
+      endpointUrl("embeddings")
+    } else {
+      endpointUrl(s"openai/deployments/$dep/embeddings")
+    }
+  }
+
+  private[this] def getEmbeddingDeployment(row: Row): String = {
     val globalEmbeddingDeployment =
       GlobalParams.getGlobalParam(OpenAIEmbeddingDeploymentNameKey).flatMap(_.left.toOption)
 
-    val dep = globalEmbeddingDeployment.orElse {
+    globalEmbeddingDeployment.orElse {
       // If embedding-specific deployment is not set, check instance param
       if (isSet(deploymentName)) {
         getValueOpt(row, deploymentName)
@@ -77,8 +87,6 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
     }.getOrElse(throw new IllegalArgumentException(
       "No embedding deployment name provided. Set the 'deploymentName' param or call " +
       "OpenAIDefaults.setEmbeddingDeploymentName('<your-embedding-deployment>') to set a global default."))
-
-    s"${getUrl}openai/deployments/$dep/embeddings"
   }
 
   private[this] def getStringEntity[A](text: A, optionalParams: Map[String, Any]): StringEntity = {
@@ -88,7 +96,10 @@ class OpenAIEmbedding (override val uid: String) extends OpenAIServicesBase(uid)
 
   override protected def prepareEntity: Row => Option[AbstractHttpEntity] = {
     r =>
-      lazy val optionalParams: Map[String, Any] = getOptionalParams(r)
+      lazy val optionalParams: Map[String, Any] = {
+        val params = getOptionalParams(r)
+        if (isOpenAIV1BaseUrl) params.updated("model", getEmbeddingDeployment(r)) else params
+      }
       getValueOpt(r, text)
         .map(text => getStringEntity(text, optionalParams))
         .orElse(throw new IllegalArgumentException(

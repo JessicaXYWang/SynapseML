@@ -5,32 +5,26 @@ package com.microsoft.azure.synapse.ml.services.openai
 
 import com.microsoft.azure.synapse.ml.core.contracts.HasOutputCol
 import com.microsoft.azure.synapse.ml.core.spark.Functions
-import com.microsoft.azure.synapse.ml.io.binary.BinaryFileReader
-import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, HasErrorCol, HasURL}
+import com.microsoft.azure.synapse.ml.io.http.{ConcurrencyParams, ErrorUtils, HasErrorCol, HasURL}
 import com.microsoft.azure.synapse.ml.logging.{FeatureNames, SynapseMLLogging}
 import com.microsoft.azure.synapse.ml.param.{GlobalParams, HasGlobalParams, ServiceParam, StringStringMapParam}
 import com.microsoft.azure.synapse.ml.services._
 import com.microsoft.azure.synapse.ml.services.aifoundry.{AIFoundryChatCompletion, HasAIFoundryTextParamsExtended}
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{Path => HPath}
 import org.apache.http.entity.AbstractHttpEntity
+import org.apache.spark.TaskKilledException
 import org.apache.spark.ml.{ComplexParamsReadable, ComplexParamsWritable, Transformer}
-import org.apache.spark.ml.param.{BooleanParam, Param, ParamMap, ParamValidators}
-import org.apache.spark.ml.util.Identifiable
+import org.apache.spark.ml.param.{BooleanParam, DoubleParam, Param, ParamMap, ParamValidators}
+import org.apache.spark.ml.util.{Identifiable, MLWriter}
 import org.apache.spark.sql.catalyst.encoders.ExpressionEncoder
-import org.apache.spark.sql.{Column, DataFrame, Dataset, Row, functions => F, types => T}
+import org.apache.spark.sql.{Column, DataFrame, Dataset, Encoders, Row, functions => F, types => T}
 import org.apache.spark.sql.catalyst.encoders.RowEncoder
 import org.apache.spark.sql.expressions.UserDefinedFunction
 import org.apache.spark.sql.functions.{col, typedLit, udf}
 import org.apache.spark.sql.types.{DataType, StructField, StructType}
 import spray.json.DefaultJsonProtocol._
 
-
-import java.io.ByteArrayInputStream
-import java.net.{URI, URL, URLConnection}
-import java.nio.charset.StandardCharsets
-import java.util.Base64
-
+import java.net.{URI, URL}
 import scala.collection.JavaConverters._
 import scala.util.{Try, Using}
 
@@ -49,31 +43,57 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   logClass(FeatureNames.AiServices.OpenAI)
 
   def this() = this(Identifiable.randomUID("OpenAIPrompt"))
+  private[openai] def generatedPythonClass: String = pythonClass()
 
-  override def copy(extra: ParamMap): Transformer = defaultCopy(extra)
+  override def copy(extra: ParamMap): Transformer = {
+    val copied = defaultCopy(extra).asInstanceOf[OpenAIPrompt]
+    copied.postProcessingExplicitlySet =
+      postProcessingExplicitlySet || extra.contains(postProcessing)
+    if (extra.contains(postProcessingOptions)) {
+      copied.setPostProcessingOptions(copied.getPostProcessingOptions)
+    } else if (extra.contains(postProcessing)) {
+      OpenAIPromptPostProcessing.inferMode(copied.getPostProcessingOptions)
+        .foreach { expectedMode =>
+          OpenAIPromptPostProcessing.validateModeValue(copied.getPostProcessing, expectedMode)
+        }
+    }
+    copied
+  }
+
+  override def write: MLWriter = {
+    val delegate = super.write
+    new MLWriter {
+      override def save(path: String): Unit = {
+        OpenAIPrompt.this.getEffectivePostProcessing
+        super.save(path)
+      }
+
+      override protected def saveImpl(path: String): Unit = {
+        delegate.session(sparkSession)
+        optionMap.foreach { case (key, value) => delegate.option(key, value) }
+        if (shouldOverwrite) {
+          delegate.overwrite()
+        }
+        delegate.save(path)
+      }
+    }
+  }
 
   def urlPath: String = ""
-
   override private[ml] def internalServiceType: String = "openai"
 
-  import UsageUtils.{UsageFieldMapping, UsageMappings, UsageStructType}
+  import UsageUtils.{UsageMappings, UsageStructType}
 
   val usageCol: Param[String] = new Param[String](
     this, "usageCol",
     "Column to hold usage statistics. Set this parameter to enable usage tracking.")
-
   def getUsageCol: String = $(usageCol)
-
   def setUsageCol(value: String): this.type = set(usageCol, value)
-
   val responseIdCol: Param[String] = new Param[String](
     this, "responseIdCol",
     "Column to hold response ID when store=true. Auto-generated if not explicitly set.")
-
   setDefault(responseIdCol -> s"${uid}_responseId")
-
   def getResponseIdCol: String = $(responseIdCol)
-
   def setResponseIdCol(value: String): this.type = set(responseIdCol, value)
 
   val promptTemplate = new Param[String](
@@ -89,7 +109,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def getPostProcessing: String = $(postProcessing)
 
-  def setPostProcessing(value: String): this.type = set(postProcessing, value)
+  private var postProcessingExplicitlySet: Boolean = false
+
+  protected def hasExplicitPostProcessing: Boolean = postProcessingExplicitlySet
+
+  def setPostProcessing(value: String): this.type = {
+    OpenAIPromptPostProcessing.inferMode(getPostProcessingOptions)
+      .foreach(expectedMode => OpenAIPromptPostProcessing.validateModeValue(value, expectedMode))
+    val result = set(postProcessing, value)
+    postProcessingExplicitlySet = true
+    result
+  }
 
   val postProcessingOptions = new StringStringMapParam(
     this, "postProcessingOptions", "Options (default): delimiter=',', jsonSchema, regex, regexGroup=0")
@@ -99,29 +129,50 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPostProcessingOptions(value: Map[String, String]): this.type = {
     def setOrValidatePostProcessing(expected: String): Unit = {
       if (isSet(postProcessing)) {
-        require(getPostProcessing == expected, s"postProcessing must be '$expected'")
+        if (getPostProcessing.isEmpty && !hasExplicitPostProcessing) {
+          set(postProcessing, expected)
+        } else {
+          OpenAIPromptPostProcessing.validateModeValue(getPostProcessing, expected)
+        }
       } else {
         set(postProcessing, expected)
+        postProcessingExplicitlySet = false
       }
     }
 
-    value match {
-      case v if v.contains("delimiter") =>
-        setOrValidatePostProcessing("csv")
-      case v if v.contains("jsonSchema") =>
-        setOrValidatePostProcessing("json")
-      case v if v.contains("regex") =>
-        require(v.contains("regexGroup"), "regexGroup must be specified with regex")
-        setOrValidatePostProcessing("regex")
-      case _ =>
-        throw new IllegalArgumentException("Invalid post processing options")
-    }
-
+    val inferredMode = OpenAIPromptPostProcessing.inferMode(value)
+    inferredMode.foreach(setOrValidatePostProcessing)
+    OpenAIPromptPostProcessing.validateModeOptions(
+      inferredMode.getOrElse(getPostProcessing),
+      value
+    )
     set(postProcessingOptions, value)
   }
 
   def setPostProcessingOptions(v: java.util.HashMap[String, String]): this.type =
-    set(postProcessingOptions, v.asScala.toMap)
+    setPostProcessingOptions(v.asScala.toMap)
+
+  override protected def pyParamSetter(p: Param[_]): String = {
+    if (p.name == postProcessingOptions.name) {
+      OpenAIPromptPythonOverrides.postProcessingOptionsSetter(super.pyParamSetter(p))
+    } else if (p.name == postProcessing.name) {
+      OpenAIPromptPythonOverrides.postProcessingSetter(super.pyParamSetter(p))
+    } else {
+      super.pyParamSetter(p)
+    }
+  }
+
+  override protected def pySetParamsFunc: String =
+    OpenAIPromptPythonOverrides.setParamsFunc(super.pySetParamsFunc)
+
+  protected def pyHasExplicitPostProcessing: String = "self._post_processing_explicitly_set"
+
+  override def pyAdditionalMethods: String =
+    super.pyAdditionalMethods +
+      OpenAIPromptPythonOverrides.additionalMethods(pyClassName, pyHasExplicitPostProcessing)
+
+  override def pyInitFunc(): String =
+    OpenAIPromptPythonOverrides.initFunc(super.pyInitFunc())
 
   val dropPrompt = new BooleanParam(
     this, "dropPrompt", "whether to drop the column of prompts after templating (when using legacy models)")
@@ -137,9 +188,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
   def setSystemPrompt(value: String): this.type = set(systemPrompt, value)
 
+  /** Called during superclass construction; overrides must not depend on subclass instance state. */
+  protected def supportedApiTypes: Array[String] = Array("chat_completions", "responses")
+
+  /** Called during superclass construction; overrides must not depend on subclass instance state. */
+  protected def defaultApiType: String = "chat_completions"
+
   val apiType = new Param[String](
-    this, "apiType", "The OpenAI API type to use: 'chat_completions' or 'responses'",
-    isValid = ParamValidators.inArray(Array("chat_completions", "responses")))
+    this, "apiType", s"The OpenAI API type to use: ${supportedApiTypes.map(t => s"'$t'").mkString(" or ")}",
+    isValid = ParamValidators.inArray(supportedApiTypes))
 
   GlobalParams.registerParam(apiType, OpenAIApiTypeKey)
 
@@ -150,13 +207,18 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   val store: ServiceParam[Boolean] = new ServiceParam[Boolean](
     this,
     "store",
-    "Whether to store the generated model response for later retrieval via API. " +
-      "Only applicable when using the 'responses' API type.",
+    "Store Chat/Responses results for retrieval. Null Responses storage-column values default to false.",
     isRequired = false)
 
   def getStore: Boolean = getScalarParam(store)
-
   def setStore(v: Boolean): this.type = setScalarParam(store, v)
+  def getStoreCol: String = getVectorParam(store)
+  def setStoreCol(v: String): this.type = setVectorParam(store, v)
+
+  private def mayStoreResponses: Boolean = get(store).orElse(getDefault(store)).exists {
+    case Left(value) => value
+    case Right(_) => true
+  }
 
   val previousResponseId: ServiceParam[String] = new ServiceParam[String](
     this,
@@ -177,7 +239,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   def setPreviousResponseIdCol(v: String): this.type = setVectorParam(previousResponseId, v)
 
   val columnTypes = new StringStringMapParam(
-    this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'.")
+    this, "columnTypes", "A map from column names to their types. Supported types are 'text' and 'path'. " +
+      "Path inputs may be filesystem paths, HTTP(S) URLs, or base64 data URLs.")
   private def validateColumnType(value: String) = {
     require(value == "text" || value == "path",
       s"Unsupported column type: $value. Supported types are 'text' and 'path'.")
@@ -201,27 +264,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   def setColumnTypes(v: java.util.HashMap[String, String]): this.type =
-    set(columnTypes, v.asScala.toMap)
+    setColumnTypes(v.asScala.toMap)
 
-  val fileSizeLimitMB: Param[Double] = new Param[Double](
+  val fileSizeLimitMB: Param[Double] = new DoubleParam(
     this, "fileSizeLimitMB",
     "Maximum file size in megabytes for path columns. Files exceeding this limit will produce an error.")
 
   def getFileSizeLimitMB: Double = $(fileSizeLimitMB)
 
-  private var fileSizeLimitBytes: Long = 0L
-
   def setFileSizeLimitMB(value: Double): this.type = {
     require(value > 0, "File size limit must be positive")
-    fileSizeLimitBytes = (value * 1024 * 1024).toLong
     set(fileSizeLimitMB, value)
-  }
-
-  private def getFileSizeLimitBytes: Long = {
-    if (fileSizeLimitBytes == 0L && isSet(fileSizeLimitMB)) {
-      fileSizeLimitBytes = (getFileSizeLimitMB * 1024 * 1024).toLong
-    }
-    fileSizeLimitBytes
   }
 
   private val defaultSystemPrompt = "You are an AI chatbot who wants to answer user's questions and complete tasks. " +
@@ -235,11 +288,14 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     messagesCol -> (this.uid + "_messages"),
     dropPrompt -> true,
     systemPrompt -> defaultSystemPrompt,
-    apiType -> "chat_completions",
+    apiType -> defaultApiType,
+    deploymentName -> Left(OpenAIDefaults.DefaultTextDeploymentName),
     columnTypes -> Map.empty,
     timeout -> 360.0,
     store -> Left(false)
   )
+
+  override def setUrl(value: String): this.type = set(url, value)
 
   override def setCustomServiceName(v: String): this.type = {
     setUrl(s"https://$v.openai.azure.com/" + urlPath.stripPrefix("/"))
@@ -258,7 +314,8 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   private val audioExtensions = Set("mp3", "wav")
 
   private def extractFilename = udf { (path: String) =>
-    Option(path).map(_.trim).filter(_.nonEmpty).map(p => new HPath(p).getName).orNull
+    Option(path).map(_.trim).filter(_.nonEmpty)
+      .map(p => Try(OpenAIAttachmentUtils.attachmentFilename(p)).getOrElse("attachment")).orNull
   }
 
   private def addRAIErrors[T <: OpenAIServicesBase with HasRAIContentFilter](
@@ -284,8 +341,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     df: DataFrame,
     messagesCol: Column
   ): (DataFrame, String, OpenAIServicesBase with HasTextOutput) = {
-    // All services are now HasMessagesInput (OpenAIChatCompletion, OpenAIResponses, AIFoundryChatCompletion)
-    // Legacy OpenAICompletion did not support MessagesInput which is no longer used in this class.
     val messagesService = service.asInstanceOf[HasMessagesInput]
 
     if (isSet(responseFormat)) {
@@ -305,14 +360,13 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
   }
 
-  private def usageMappingFor(service: OpenAIServicesBase with HasTextOutput)
-      : Option[UsageFieldMapping] = service match {
+  private def usageNormalizerFor(service: OpenAIServicesBase with HasTextOutput)
+      : Option[Column => Column] = service match {
     case _: OpenAIChatCompletion | _: AIFoundryChatCompletion =>
-      Some(UsageMappings.ChatCompletions)
+      Some(UsageUtils.normalize(_, UsageMappings.ChatCompletionsDetailed))
     case _: OpenAIResponses =>
-      Some(UsageMappings.Responses)
-    case _ =>
-      None
+      Some(UsageUtils.normalizeResponsesDetailed)
+    case _ => None
   }
 
   private def generateText(
@@ -327,22 +381,28 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     val serviceOutputCol = service.getOutputCol
     val responseCol = F.col(serviceOutputCol)
-
+    val storeFlagCol = OpenAIColumnUtils.findUnusedColumnName(s"${uid}_store")(
+      transformed.columns.toSet ++ Seq(getOutputCol, getResponseIdCol) ++ get(usageCol))
+    var result = transformed
+    if (mayStoreResponses) {
+      val storeEnabled = get(store).orElse(getDefault(store)) match {
+        case Some(Right(columnName)) => F.col(columnName)
+        case _ => F.lit(getStore)
+      }
+      result = result.withColumn(storeFlagCol, storeEnabled)
+    }
     val parsedText = getParser.parse(service.getOutputMessageText(serviceOutputCol))
-    var result = transformed.withColumn(getOutputCol, F.when(parsedText.isNotNull, parsedText))
-
+    result = result.withColumn(getOutputCol, F.when(parsedText.isNotNull, parsedText))
     if (isSet(usageCol)) {
-      usageMappingFor(service).foreach { mapping =>
-        val usage = UsageUtils.normalize(responseCol.getField("usage"), mapping)
-        result = result.withColumn(getUsageCol, F.when(responseCol.isNotNull, usage))
+      usageNormalizerFor(service).foreach { normalize =>
+        result = result.withColumn(getUsageCol, F.when(responseCol.isNotNull, normalize(responseCol.getField("usage"))))
       }
     }
-
-    if (service.isInstanceOf[OpenAIResponses] && getStore) {
-      result = result.withColumn(getResponseIdCol, F.when(responseCol.isNotNull, responseCol.getField("id")))
+    if (mayStoreResponses) {
+      result = result.withColumn(getResponseIdCol,
+        F.when(responseCol.isNotNull && F.col(storeFlagCol), responseCol.getField("id")))
     }
-
-    result = result.drop(serviceOutputCol)
+    result = result.drop(serviceOutputCol, storeFlagCol)
     result.select(result.columns.filter(_ != getErrorCol).map(col) :+ col(getErrorCol): _*)
   }
 
@@ -366,10 +426,10 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       )
     }
 
-    import com.microsoft.azure.synapse.ml.core.schema.DatasetExtensions._
     val (dfWithFilenames, filenameColMapping) = pathColumnNames.foldLeft((df, Map.empty[String, String])) {
       case ((currentDf, mapping), colName) =>
-        val filenameCol = currentDf.withDerivativeCol(s"${colName}_filename")
+        val filenameCol = OpenAIColumnUtils.findUnusedColumnName(
+          s"${colName}_filename")(currentDf.columns.toSet)
         (currentDf.withColumn(filenameCol, extractFilename(F.col(colName))), mapping + (colName -> filenameCol))
     }
 
@@ -396,11 +456,6 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 
   private def validateResponsesOnlyParams(currentApiType: String): Unit = {
-    if (currentApiType != "responses" && isSet(store) && getStore) {
-      throw new IllegalArgumentException(
-        "store parameter requires apiType='responses'. Use .setApiType(\"responses\")")
-    }
-
     if (currentApiType != "responses" && hasPreviousResponseIdConfigured) {
       throw new IllegalArgumentException(
         "previousResponseId requires apiType='responses'. Use .setApiType(\"responses\")")
@@ -423,9 +478,74 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     validateUsageColSupport(currentApiType)
   }
 
+  private def validatePublicColumnNames(): Unit =
+    OpenAIColumnUtils.validateDistinctColumns(
+      "messagesCol" -> getMessagesCol,
+      "outputCol" -> getOutputCol,
+      "errorCol" -> getErrorCol
+    )
+
+  private def attachmentsColumn(pathColumnNames: Seq[String]): Column = {
+    if (pathColumnNames.nonEmpty) {
+      val mapEntries = pathColumnNames.flatMap { columnName =>
+        Seq(F.lit(columnName), F.col(columnName).cast(T.StringType))
+      }
+      F.map(mapEntries: _*)
+    } else {
+      typedLit(Map.empty[String, String])
+    }
+  }
+
+  private def createMessagesUDF(pathColumnNames: Seq[String]): UserDefinedFunction = {
+    udf[(Seq[OpenAICompositeMessage], String), String, Map[String, String]] {
+      (userMessage, attachmentMap) =>
+        if (userMessage == null) (null, null) //scalastyle:ignore null
+        else Try {
+          createMessagesForRow(
+            userMessage,
+            Option(attachmentMap).getOrElse(Map.empty[String, String]),
+            pathColumnNames
+          )
+        } match {
+          case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
+          case scala.util.Failure(e: TaskKilledException) => throw e
+          case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
+        }
+    }
+  }
+
+  private def addPromptMessages(
+      df: DataFrame,
+      promptCol: Column,
+      pathColumnNames: Seq[String]
+  ): DataFrame = {
+    val fileResultColName = OpenAIColumnUtils.findUnusedColumnName(
+      s"${uid}_file_result")(df.columns.toSet)
+    val dfWithFileResult = df.withColumn(
+      fileResultColName,
+      createMessagesUDF(pathColumnNames)(promptCol, attachmentsColumn(pathColumnNames)))
+    val fileResultCol = F.col(fileResultColName)
+    val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
+    val combinedFileError =
+      OpenAIColumnUtils.existingColumnOfType(df, getErrorCol, ErrorUtils.ErrorSchema) match {
+        case Some(existingErrorCol) => F.coalesce(F.col(existingErrorCol), fileErrorStruct)
+        case None => fileErrorStruct
+      }
+    dfWithFileResult.withColumn(getMessagesCol, fileResultCol.getField("_1"))
+      .withColumn(getErrorCol, combinedFileError)
+      .drop(fileResultColName)
+  }
+
+  private def dropFilenameColumns(df: DataFrame, filenameColMapping: Map[String, String]): DataFrame = {
+    filenameColMapping.values.foldLeft(df) { (current, colName) =>
+      if (current.columns.contains(colName)) current.drop(colName) else current
+    }
+  }
+
   override def transform(dataset: Dataset[_]): DataFrame = {
     transferGlobalParamsToParamMap()
     validateResponsesApiParams()
+    validatePublicColumnNames()
 
     logTransform[DataFrame]({
       val df = dataset.toDF
@@ -435,61 +555,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
         processPathColumns(df)
 
       val promptCol = Functions.template(templateWithFilenameRefs)
-
-      val attachmentsColumn: Column =
-        if (pathColumnNames.nonEmpty) {
-          val mapEntries = pathColumnNames.flatMap { columnName =>
-            Seq(F.lit(columnName), F.col(columnName).cast(T.StringType))
-          }
-          F.map(mapEntries: _*)
-        } else {
-          typedLit(Map.empty[String, String])
-        }
-
-      // UDF returns (messages, error)
-      val createMessagesUDF = udf[(Seq[OpenAICompositeMessage], String), String, Map[String, String]] {
-        (userMessage, attachmentMap) =>
-          if (userMessage == null) (null, null) //scalastyle:ignore null
-          else Try {
-            createMessagesForRow(
-              userMessage,
-              Option(attachmentMap).getOrElse(Map.empty[String, String]),
-              pathColumnNames
-            )
-          } match {
-            case scala.util.Success(msgs) => (msgs, null) //scalastyle:ignore null
-            case scala.util.Failure(e) => (null, e.getMessage) //scalastyle:ignore null
-          }
-      }
-
-      val fileResultCol = createMessagesUDF(promptCol, attachmentsColumn)
-      val fileErrorStruct = toErrorStruct(fileResultCol.getField("_2"))
-      val dfWithFile = dfWithFilenames
-        .withColumn(getMessagesCol, fileResultCol.getField("_1"))
-        .withColumn(getErrorCol, fileErrorStruct)
+      val dfWithFile = addPromptMessages(dfWithFilenames, promptCol, pathColumnNames)
 
       val (dfTemplated, inputColName, serviceConfigured) =
         configureService(service, dfWithFile, F.col(getMessagesCol))
       val result = generateText(serviceConfigured, dfTemplated)
-
-      val resultCleaned = filenameColMapping.values.foldLeft(result) { (df, colName) =>
-        if (df.columns.contains(colName)) df.drop(colName) else df
-      }
+      val resultCleaned = dropFilenameColumns(result, filenameColMapping)
 
       if (getDropPrompt) resultCleaned.drop(inputColName) else resultCleaned
     }, dataset.columns.length)
   }
 
   private def toErrorStruct(errorStr: Column): Column = {
-    val statusSchema = T.StructType(Seq(
-      T.StructField("protocolVersion", T.StructType(Seq(
-        T.StructField("protocol", T.StringType),
-        T.StructField("major", T.IntegerType),
-        T.StructField("minor", T.IntegerType)
-      ))),
-      T.StructField("statusCode", T.IntegerType),
-      T.StructField("reasonPhrase", T.StringType)
-    ))
+    val statusSchema = ErrorUtils.ErrorSchema("status").dataType
     F.when(errorStr.isNotNull, F.struct(
       errorStr.as("response"),
       F.lit(null).cast(statusSchema).as("status") //scalastyle:ignore null
@@ -515,10 +593,17 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     )
   }
 
-  private[openai] def createMessagesForRow(
+  private[services] def createMessagesForRow(
     userMessage: String,
     attachmentMap: Map[String, String],
     attachmentOrder: Seq[String]
+  ): Seq[OpenAICompositeMessage] = createMessagesForRow(userMessage, attachmentMap, attachmentOrder, None)
+
+  private[services] def createMessagesForRow(
+    userMessage: String,
+    attachmentMap: Map[String, String],
+    attachmentOrder: Seq[String],
+    conf: Option[Configuration]
   ): Seq[OpenAICompositeMessage] = {
     // Filter to get only non-null, non-empty path values
     val orderedAttachments = attachmentOrder.flatMap { columnName =>
@@ -529,107 +614,43 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     if (attachmentOrder.nonEmpty && orderedAttachments.isEmpty) {
       null //scalastyle:ignore null
     } else {
-      val contentParts = buildContentParts(userMessage, orderedAttachments)
-      val messages = getPromptsForMessage(Left(contentParts))
-      messages
+      val contentParts = buildContentParts(userMessage, orderedAttachments, conf)
+      getPromptsForMessage(Left(contentParts))
     }
   }
 
-  private def buildContentParts(promptText: String, attachmentPaths: Seq[String]): Seq[Map[String, String]] = {
-    var parts = Seq(stringMessageWrapper(promptText))
-    if (!attachmentPaths.isEmpty) {
-      parts = parts ++ attachmentPaths.flatMap(wrapFileToMessagesList)
-    }
-    parts
-  }
+  private def buildContentParts(promptText: String, attachmentPaths: Seq[String],
+                                conf: Option[Configuration]): Seq[Map[String, String]] =
+    Seq(stringMessageWrapper(promptText)) ++ attachmentPaths.flatMap(path => wrapFileToMessagesList(path, conf))
 
-  private def prepareFile(filePathStr: String): (String, Array[Byte], String, String) = {
-    val filePath = new HPath(filePathStr)
-    val fileBytes = BinaryFileReader.readSingleFileBytes(filePath)
+  private def attachmentSizeLimit: Option[Double] =
+    get(fileSizeLimitMB).orElse(if (useBoundedAttachments) getDefault(fileSizeLimitMB) else None)
 
-    if (isSet(fileSizeLimitMB) && fileBytes.length > getFileSizeLimitBytes) {
-      val fileSizeMB = fileBytes.length / (1024.0 * 1024.0)
-      throw new IllegalArgumentException(
-        f"File '$filePathStr' size $fileSizeMB%.2f MB exceeds limit ${getFileSizeLimitMB}%.2f MB")
-    }
+  protected def useBoundedAttachments: Boolean = false
 
-    val fileName = filePath.getName
-    val extension = fileName.lastIndexOf('.') match {
-      case idx if idx >= 0 => fileName.substring(idx + 1).toLowerCase
-      case _ => ""
-    }
-
-    // Use URLConnection to infer MIME type from byte content
-    val mimeType = Option(URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(fileBytes))).getOrElse(
-      // Fallback to URLConnection.guessContentTypeFromName if content-based detection fails
-      Option(URLConnection.guessContentTypeFromName(fileName)).getOrElse("application/octet-stream")
-    )
-
-    val fileType = categorizeFileType(mimeType, extension)
-    (fileName, fileBytes, fileType, mimeType)
-  }
-
-  private def makeResponsesFileMessage(
-    fileName: String,
-    fileBytes: Array[Byte],
-    fileType: String,
-    mimeType: String
-  ): Map[String, String] = {
-    fileType match {
-      case "text" =>
-        stringMessageWrapper(s"${new String(fileBytes, StandardCharsets.UTF_8)}")
-      case "image" =>
-        Map(
-          "type" -> "input_image",
-          "image_url" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
-        )
-      case "audio" =>
-        throw new IllegalArgumentException("Audio input is not supported in the current API version.")
-      case "unsupported" =>
-        throw new IllegalArgumentException(s"Unsupported file type: $mimeType.")
-      case "file" =>
-        Map(
-          "type" -> "input_file",
-          "filename" -> fileName,
-          "file_data" -> s"data:${mimeType};base64,${Base64.getEncoder.encodeToString(fileBytes)}"
-        )
-    }
-  }
-
-  private def makeChatCompletionsFileMessage(
-    fileName: String,
-    fileBytes: Array[Byte],
-    fileType: String,
-    mimeType: String
-  ): Map[String, String] = {
-    fileType match {
-      case "text" =>
-        stringMessageWrapper(s"Content: ${new String(fileBytes, StandardCharsets.UTF_8)}")
-      case _ =>
-        throw new IllegalArgumentException(
-          s"File type $mimeType is not supported in Chat Completions API. " +
-            "Only text files are supported. Use apiType='responses' for file input.")
-    }
-  }
-
-  private def wrapFileToMessagesList(filePathStr: String): Seq[Map[String, String]] = {
-    val (fileName, fileBytes, fileType, mimeType) = prepareFile(filePathStr)
-
-    val fileMessage = this.getApiType match {
-      case "responses" =>
-        makeResponsesFileMessage(fileName, fileBytes, fileType, mimeType)
-      case "chat_completions" =>
-        makeChatCompletionsFileMessage(fileName, fileBytes, fileType, mimeType)
+  private def wrapFileToMessagesList(filePathStr: String, conf: Option[Configuration]): Seq[Map[String, String]] = {
+    val limit = attachmentSizeLimit
+    val fileMessage = if (OpenAIAttachmentUtils.isDataUrl(filePathStr)) {
+      this.getApiType match {
+        case "responses" =>
+          OpenAIAttachmentUtils.responsesDataUrlMessage(
+            filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
+        case "chat_completions" =>
+          OpenAIAttachmentUtils.chatCompletionsDataUrlMessage(
+            filePathStr, limit, imageExtensions, audioExtensions, textExtensions, stringMessageWrapper)
+      }
+    } else {
+      val (fileName, fileBytes, fileType, mimeType) = OpenAIAttachmentUtils.prepareFile(
+        filePathStr, limit, imageExtensions, audioExtensions, textExtensions,
+        useBoundedAttachments, conf.getOrElse(new Configuration()))
+      this.getApiType match {
+        case "responses" =>
+          OpenAIAttachmentUtils.responsesMessage(fileName, fileBytes, fileType, mimeType, stringMessageWrapper)
+        case "chat_completions" =>
+          OpenAIAttachmentUtils.chatCompletionsMessage(fileBytes, fileType, mimeType, stringMessageWrapper)
+      }
     }
     Seq(fileMessage)
-  }
-
-  private def categorizeFileType(mimeType: String, extension: String): String = {
-    if (mimeType == "application/pdf") "file"
-    else if (mimeType.startsWith("image/") && imageExtensions.contains(extension)) "image"
-    else if (mimeType.startsWith("audio/") && audioExtensions.contains(extension)) "audio"
-    else if (mimeType.startsWith("text/") || textExtensions.contains(extension)) "text"
-    else "unsupported"
   }
 
   private def isAIFoundryEndpoint: Boolean = {
@@ -639,7 +660,15 @@ class OpenAIPrompt(override val uid: String) extends Transformer
     host.exists(_.toLowerCase.endsWith("services.ai.azure.com"))
   }
 
-  private[openai] def hasAIFoundryModel: Boolean = this.isDefined(model) && isAIFoundryEndpoint
+  private def isOpenAIV1Endpoint: Boolean = {
+    get(url).orElse(getDefault(url)).exists(OpenAIEndpointUtils.isV1BaseUrl)
+  }
+
+  private[openai] def hasAIFoundryModel: Boolean =
+    this.isDefined(model) && isAIFoundryEndpoint && !isOpenAIV1Endpoint
+
+  private def skipNoOpStore(param: Param[_]): Boolean =
+    param.name == store.name && !mayStoreResponses && (getApiType == "chat_completions" || hasAIFoundryModel)
 
   //deployment name can be set by user, it doesn't have to match with model name
   private def getOpenAIChatService: OpenAIServicesBase with HasTextOutput = {
@@ -656,13 +685,19 @@ class OpenAIPrompt(override val uid: String) extends Transformer
 
     extractParamMap().toSeq
       .filter(p => !localParamNames.contains(p.param.name) && completion.hasParam(p.param.name))
+      .filterNot(p => skipNoOpStore(p.param))
       .foreach(p => completion.set(completion.getParam(p.param.name), p.value))
 
-    completion match {
-      case resp: OpenAIResponses
-          if this.isDefined(model) && get(deploymentName).orElse(getDefault(deploymentName)).isEmpty =>
-        resp.setDeploymentName(getModel)
-      case _ =>
+    if (this.isDefined(model) &&
+        !isSet(deploymentName) &&
+        !hasAIFoundryModel) {
+      if (isOpenAIV1Endpoint || completion.isInstanceOf[OpenAIResponses]) {
+        completion.setDeploymentName(getModel)
+      } else {
+        require(get(customUrlRoot).nonEmpty,
+          "model is not a deployment alias for legacy Chat endpoints. " +
+            "Use setDeploymentName(...) or an OpenAI v1 endpoint.")
+      }
     }
 
     completion
@@ -680,41 +715,77 @@ class OpenAIPrompt(override val uid: String) extends Transformer
       }
   }
 
-  private def getParser: OutputParser = {
+  private def getEffectivePostProcessing: String = {
     val opts = getPostProcessingOptions
+    val effectivePostProcessing = OpenAIPromptPostProcessing.inferMode(opts) match {
+      case Some(inferredMode) =>
+        val configuredMode = get(postProcessing)
+          .getOrElse(throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'"))
+        if (configuredMode.isEmpty && hasExplicitPostProcessing) {
+          throw new IllegalArgumentException(s"postProcessing must be '$inferredMode'")
+        }
+        if (configuredMode.nonEmpty) {
+          OpenAIPromptPostProcessing.validateModeValue(configuredMode, inferredMode)
+        }
+        inferredMode
+      case None => getPostProcessing
+    }
+    OpenAIPromptPostProcessing.validateModeOptions(effectivePostProcessing, opts)
+    effectivePostProcessing
+  }
 
-    getPostProcessing.toLowerCase match {
+  private[services] def getParser: OutputParser = {
+    val opts = getPostProcessingOptions
+    val effectivePostProcessing = getEffectivePostProcessing
+    effectivePostProcessing.toLowerCase match {
       case "csv" => new DelimiterParser(opts.getOrElse("delimiter", ","))
       case "json" => new JsonParser(opts("jsonSchema"), Map.empty)
       case "regex" => new RegexParser(opts("regex"), opts("regexGroup").toInt)
       case "" => new PassThroughParser()
-      case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$getPostProcessing'")
+      case _ => throw new IllegalArgumentException(s"Unsupported postProcessing type: '$effectivePostProcessing'")
     }
   }
 
+  private def promptMessagesDataType: DataType =
+    T.ArrayType(Encoders.product[OpenAICompositeMessage].schema, containsNull = true)
+
+  private def schemaWithPromptMessages(schema: StructType): StructType = {
+    val messagesField = StructField(getMessagesCol, promptMessagesDataType, nullable = true)
+    OpenAIColumnUtils.replaceOrAppendField(schema, messagesField)
+  }
+
   override def transformSchema(schema: StructType): StructType = {
+    val resolved = copy(ParamMap.empty).asInstanceOf[OpenAIPrompt]
+    resolved.transferGlobalParamsToParamMap()
+    resolved.transformSchemaWithResolvedParams(schema)
+  }
+
+  private def transformSchemaWithResolvedParams(schema: StructType): StructType = {
+    validatePublicColumnNames()
+    val outputDataType: DataType = getParser.outputSchema
     val service = getOpenAIChatService
+    val inputSchema = schemaWithPromptMessages(schema)
     val serviceSchema = service match {
       case chatCompletion: OpenAIResponses =>
-        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
+        chatCompletion.transformSchema(inputSchema)
       case chatCompletion: AIFoundryChatCompletion =>
-        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
+        chatCompletion.transformSchema(inputSchema)
       case chatCompletion: OpenAIChatCompletion =>
-        chatCompletion.transformSchema(schema.add(getMessagesCol, StructType(Seq())))
+        chatCompletion.transformSchema(inputSchema)
     }
 
-    val outputDataType: DataType = getParser.outputSchema
+    val fieldsToDrop = Set(service.getOutputCol) ++
+      (if (getDropPrompt) Set(getMessagesCol) else Set.empty[String])
+    val withoutServiceOutput = StructType(serviceSchema.filterNot(field => fieldsToDrop(field.name)))
+    var resultSchema = OpenAIColumnUtils.replaceOrAppendField(
+      withoutServiceOutput, StructField(getOutputCol, outputDataType))
 
-    var withoutServiceOutput = StructType(serviceSchema.filterNot(_.name == service.getOutputCol))
-    var resultSchema = withoutServiceOutput.add(getOutputCol, outputDataType)
-
-    if (isSet(usageCol) && usageMappingFor(service).isDefined) {
-      resultSchema = resultSchema.add(getUsageCol, UsageStructType)
+    if (isSet(usageCol) && usageNormalizerFor(service).isDefined) {
+      resultSchema = OpenAIColumnUtils.replaceOrAppendField(resultSchema, StructField(getUsageCol, UsageStructType))
     }
 
-    val isResponsesApi = service.isInstanceOf[OpenAIResponses]
-    if (isResponsesApi && getStore) {
-      resultSchema = resultSchema.add(getResponseIdCol, T.StringType)
+    if (mayStoreResponses) {
+      resultSchema = OpenAIColumnUtils.replaceOrAppendField(resultSchema, StructField(getResponseIdCol, T.StringType))
     }
 
     val errorFieldOpt: Option[StructField] = resultSchema.fields.find(_.name == getErrorCol)
@@ -723,42 +794,3 @@ class OpenAIPrompt(override val uid: String) extends Transformer
   }
 }
 // scalastyle:on number.of.methods
-
-trait OutputParser {
-  def parse(responseCol: Column): Column
-
-  def outputSchema: T.DataType
-}
-
-class PassThroughParser extends OutputParser {
-  def parse(responseCol: Column): Column = responseCol
-
-  def outputSchema: T.DataType = T.StringType
-}
-
-class DelimiterParser(val delimiter: String) extends OutputParser {
-  def parse(responseCol: Column): Column = F.split(F.trim(responseCol), delimiter)
-
-  def outputSchema: T.DataType = T.ArrayType(T.StringType)
-}
-
-class JsonParser(val schema: String, options: Map[String, String]) extends OutputParser {
-  private val cleanJsonString: Column => Column = col =>
-    F.regexp_replace(
-      // Remove optional leading/trailing code fences and optional 'json' prefix
-      F.trim(col),
-      """^(```|''')?\s*json\s*|(```|''')$""",
-      ""
-    )
-
-  def parse(responseCol: Column): Column =
-    F.from_json(cleanJsonString(responseCol), schema, options)
-
-  def outputSchema: T.DataType = DataType.fromDDL(schema)
-}
-
-class RegexParser(val regex: String, val groupIdx: Int) extends OutputParser {
-  def parse(responseCol: Column): Column = F.regexp_extract(responseCol, regex, groupIdx)
-
-  def outputSchema: T.DataType = T.StringType
-}

@@ -9,6 +9,8 @@ import com.microsoft.azure.synapse.ml.io.http.URLKey
 import com.microsoft.azure.synapse.ml.services.aifoundry.AIFoundryModel
 
 object OpenAIDefaults {
+  private[openai] val DefaultTextDeploymentName: String = "gpt-6-luna"
+
   def setDeploymentName(v: String): Unit = {
     GlobalParams.setGlobalParam(OpenAIDeploymentNameKey, Left(v))
   }
@@ -47,8 +49,7 @@ object OpenAIDefaults {
   }
 
   def setURL(v: String): Unit = {
-    val url = if (v.endsWith("/")) v else v + "/"
-    GlobalParams.setGlobalParam(URLKey, url)
+    GlobalParams.setGlobalParam(URLKey, v)
   }
 
   def getURL: Option[String] = {
@@ -59,6 +60,9 @@ object OpenAIDefaults {
     GlobalParams.resetGlobalParam(URLKey)
   }
 
+  /** Sets a global Chat/Completions seed. Responses rejects this inherited setting;
+    * call resetSeed() before using Responses in the same session.
+    */
   def setSeed(v: Int): Unit = {
     GlobalParams.setGlobalParam(OpenAISeedKey, Left(v))
   }
